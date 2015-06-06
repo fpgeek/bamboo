@@ -134,6 +134,7 @@ Configuration in the `production.json` file can be overridden with environment v
 Environment Variable | Corresponds To
 ---------------------|---------------
 `MARATHON_ENDPOINT` | Marathon.Endpoint
+`MARATHON_BASIC_AUTH` | Marathon.BasicAuth
 `BAMBOO_ENDPOINT` | Bamboo.Endpoint
 `BAMBOO_ZK_HOST` | Bamboo.Zookeeper.Host
 `BAMBOO_ZK_PATH` | Bamboo.Zookeeper.Path

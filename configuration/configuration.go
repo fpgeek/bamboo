@@ -45,6 +45,7 @@ func FromFile(filePath string) (Configuration, error) {
 	conf := &Configuration{}
 	err := conf.FromFile(filePath)
 	setValueFromEnv(&conf.Marathon.Endpoint, "MARATHON_ENDPOINT")
+	setValueFromEnv(&conf.Marathon.BasicAuth, "MARATHON_BASIC_AUTH")
 
 	setValueFromEnv(&conf.Bamboo.Endpoint, "BAMBOO_ENDPOINT")
 	setValueFromEnv(&conf.Bamboo.Zookeeper.Host, "BAMBOO_ZK_HOST")
@@ -68,15 +69,15 @@ func setValueFromEnv(field *string, envVar string) {
 }
 
 func setBoolValueFromEnv(field *bool, envVar string) {
-env := os.Getenv(envVar)
-if len(env) > 0 {
-	log.Printf("Using environment override %s=%t", envVar, env)
-	x, err := strconv.ParseBool(env)
-	if err != nil {
-		log.Printf("Error converting boolean value: %s\n", err)
+	env := os.Getenv(envVar)
+	if len(env) > 0 {
+		log.Printf("Using environment override %s=%t", envVar, env)
+		x, err := strconv.ParseBool(env)
+		if err != nil {
+			log.Printf("Error converting boolean value: %s\n", err)
+		}
+		*field = x
+	} else {
+		log.Printf("Environment variable not set: %s", envVar)
 	}
-	*field = x
-} else {
-	log.Printf("Environment variable not set: %s", envVar)
-}
 }

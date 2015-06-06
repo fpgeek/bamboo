@@ -2,11 +2,12 @@ package marathon
 
 import (
 	"encoding/json"
-	"github.com/QubitProducts/bamboo/configuration"
 	"io/ioutil"
 	"net/http"
 	"sort"
 	"strings"
+
+	"github.com/QubitProducts/bamboo/configuration"
 )
 
 // Describes an app process running
@@ -85,40 +86,71 @@ type HealthChecks struct {
 	Path string `json:path`
 }
 
-func fetchMarathonApps(endpoint string) (map[string]MarathonApp, error) {
-	response, err := http.Get(endpoint + "/v2/apps")
-
-	if err != nil {
-		return nil, err
-	} else {
-		defer response.Body.Close()
-		var appResponse MarathonApps
-
-		contents, err := ioutil.ReadAll(response.Body)
-		if err != nil {
-			return nil, err
-		}
-
-		err = json.Unmarshal(contents, &appResponse)
-		if err != nil {
-			return nil, err
-		}
-
-		dataById := map[string]MarathonApp{}
-
-		for _, appConfig := range appResponse.Apps {
-			dataById[appConfig.Id] = appConfig
-		}
-
-		return dataById, nil
-	}
+type marathonClient struct {
+	httpClient *http.Client
+	Endpoints  []string
+	Username   string
+	Password   string
 }
 
-func fetchTasks(endpoint string) (map[string][]MarathonTask, error) {
-	client := &http.Client{}
+func newMarathonClient(maraconf configuration.Marathon) *marathonClient {
+	client := &marathonClient{
+		httpClient: http.DefaultClient,
+		Endpoints:  maraconf.Endpoints(),
+	}
+	if maraconf.BasicAuth != "" {
+		auths := strings.Split(maraconf.BasicAuth, ":")
+		if len(auths) == 2 {
+			client.Username = auths[0]
+			client.Password = auths[1]
+		}
+	}
+	return client
+}
+
+func (c *marathonClient) FetchApps() (AppList, error) {
+	var applist AppList
+	var err error
+
+	// try all configured endpoints until one succeeds
+	for _, url := range c.Endpoints {
+		applist, err = c._fetchApps(url)
+		if err == nil {
+			return applist, err
+		}
+	}
+
+	// return last error
+	return nil, err
+}
+
+func (c *marathonClient) hasBasicAuth() bool {
+	return c.Username != "" && c.Password != ""
+}
+
+func (c *marathonClient) _fetchApps(url string) (AppList, error) {
+	tasks, err := c.fetchTasks(url)
+	if err != nil {
+		return nil, err
+	}
+
+	marathonApps, err := c.fetchMarathonApps(url)
+	if err != nil {
+		return nil, err
+	}
+
+	apps := createApps(tasks, marathonApps)
+	sort.Sort(apps)
+	return apps, nil
+}
+
+func (c *marathonClient) fetchTasks(endpoint string) (map[string][]MarathonTask, error) {
 	req, err := http.NewRequest("GET", endpoint+"/v2/tasks", nil)
+	if c.hasBasicAuth() {
+		req.SetBasicAuth(c.Username, c.Password)
+	}
 	req.Header.Add("Accept", "application/json")
-	response, err := client.Do(req)
+	response, err := c.httpClient.Do(req)
 
 	var tasks MarathonTasks
 
@@ -148,6 +180,39 @@ func fetchTasks(endpoint string) (map[string][]MarathonTask, error) {
 		}
 
 		return tasksById, nil
+	}
+}
+
+func (c *marathonClient) fetchMarathonApps(endpoint string) (map[string]MarathonApp, error) {
+	req, err := http.NewRequest("GET", endpoint+"/v2/apps", nil)
+	if c.hasBasicAuth() {
+		req.SetBasicAuth(c.Username, c.Password)
+	}
+	response, err := c.httpClient.Do(req)
+
+	if err != nil {
+		return nil, err
+	} else {
+		defer response.Body.Close()
+		var appResponse MarathonApps
+
+		contents, err := ioutil.ReadAll(response.Body)
+		if err != nil {
+			return nil, err
+		}
+
+		err = json.Unmarshal(contents, &appResponse)
+		if err != nil {
+			return nil, err
+		}
+
+		dataById := map[string]MarathonApp{}
+
+		for _, appConfig := range appResponse.Apps {
+			dataById[appConfig.Id] = appConfig
+		}
+
+		return dataById, nil
 	}
 }
 
@@ -205,33 +270,6 @@ func parseHealthCheckPath(checks []HealthChecks) string {
 		endpoint: Marathon HTTP endpoint, e.g. http://localhost:8080
 */
 func FetchApps(maraconf configuration.Marathon) (AppList, error) {
-
-	var applist AppList
-	var err error
-
-	// try all configured endpoints until one succeeds
-	for _, url := range maraconf.Endpoints() {
-		applist, err = _fetchApps(url)
-		if err == nil {
-			return applist, err
-		}
-	}
-	// return last error
-	return nil, err
-}
-
-func _fetchApps(url string) (AppList, error) {
-	tasks, err := fetchTasks(url)
-	if err != nil {
-		return nil, err
-	}
-
-	marathonApps, err := fetchMarathonApps(url)
-	if err != nil {
-		return nil, err
-	}
-
-	apps := createApps(tasks, marathonApps)
-	sort.Sort(apps)
-	return apps, nil
+	client := newMarathonClient(maraconf)
+	return client.FetchApps()
 }

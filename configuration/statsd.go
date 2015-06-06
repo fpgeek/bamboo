@@ -1,10 +1,11 @@
 package configuration
 
 import (
-	"github.com/QubitProducts/bamboo/Godeps/_workspace/src/github.com/peterbourgon/g2s"
 	"log"
 	"strings"
 	"time"
+
+	"github.com/QubitProducts/bamboo/Godeps/_workspace/src/github.com/peterbourgon/g2s"
 )
 
 type StatsD struct {
