@@ -12,6 +12,7 @@ RUN apt-get install -yqq software-properties-common && \
 ADD . /opt/go/src/github.com/QubitProducts/bamboo
 ADD builder/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 ADD builder/run.sh /run.sh
+ADD builder/rsyslog.conf /etc/rsyslog.conf
 
 WORKDIR /opt/go/src/github.com/QubitProducts/bamboo
 
@@ -20,9 +21,10 @@ RUN go get github.com/tools/godep && \
     go build && \
     ln -s /opt/go/src/github.com/QubitProducts/bamboo /var/bamboo && \
     mkdir -p /run/haproxy && \
-    mkdir -p /var/log/supervisor
+    mkdir -p /var/log/supervisor && \
+    echo "if (\$programname == 'haproxy') then -/var/log/haproxy.log" >> /etc/rsyslog.d/haproxy.conf
 
-VOLUME /var/log/supervisor
+VOLUME "/var/log/supervisor"
 
 RUN apt-get clean && \
     rm -rf /tmp/* /var/tmp/* && \
@@ -32,4 +34,4 @@ RUN apt-get clean && \
 
 EXPOSE 80 8000
 
-CMD /run.sh
+CMD service rsyslog restart && /run.sh
