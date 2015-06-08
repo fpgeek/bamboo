@@ -98,12 +98,9 @@ func newMarathonClient(maraconf configuration.Marathon) *marathonClient {
 		httpClient: http.DefaultClient,
 		Endpoints:  maraconf.Endpoints(),
 	}
-	if maraconf.BasicAuth != "" {
-		auths := strings.Split(maraconf.BasicAuth, ":")
-		if len(auths) == 2 {
-			client.Username = auths[0]
-			client.Password = auths[1]
-		}
+	if maraconf.Username != "" && maraconf.Password != "" {
+		client.Username = maraconf.Username
+		client.Password = maraconf.Password
 	}
 	return client
 }
