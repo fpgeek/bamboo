@@ -19,13 +19,19 @@ type Task struct {
 
 // An app may have multiple processes
 type App struct {
-	Id              string
-	EscapedId       string
-	HealthCheckPath string
-	Tasks           []Task
-	ServicePort     int
-	ServicePorts    []int
-	Env             map[string]string
+	Id                     string
+	EscapedId              string
+	HealthCheckPath        string
+	Tasks                  []Task
+	ServicePort            int
+	ServicePorts           []int
+	Env                    map[string]string
+	HaproxySticky          bool
+	HaproxyRedirectToHTTPS bool
+	HaproxySSLCertID       string
+	HaproxyBindAddr        string
+	HaproxyMode            string
+	HaproxyBalance         string
 }
 
 type AppList []App
@@ -240,7 +246,12 @@ func createApps(tasksById map[string][]MarathonTask, marathonApps map[string]Mar
 			Tasks:           simpleTasks,
 			HealthCheckPath: parseHealthCheckPath(marathonApps[appId].HealthChecks),
 			Env:             marathonApps[appId].Env,
+			HaproxyBindAddr: "0.0.0.0",
+			HaproxyMode:     "tcp",
+			HaproxyBalance:  "roundrobin",
 		}
+
+		parseHaproxyEnv(&app)
 
 		if len(marathonApps[appId].Ports) > 0 {
 			app.ServicePort = marathonApps[appId].Ports[0]
@@ -250,6 +261,33 @@ func createApps(tasksById map[string][]MarathonTask, marathonApps map[string]Mar
 		apps = append(apps, app)
 	}
 	return apps
+}
+
+func parseHaproxyEnv(app *App) {
+	if value, ok := app.Env["HAPROXY_STICKY"]; ok {
+		if strings.ToLower(value) == "true" {
+			app.HaproxySticky = true
+		}
+	}
+	if value, ok := app.Env["HAPROXY_REDIRECT_TO_HTTPS"]; ok {
+		if strings.ToLower(value) == "true" {
+			app.HaproxyRedirectToHTTPS = true
+		}
+	}
+	if value, ok := app.Env["HAPROXY_SSL_CERT_ID"]; ok {
+		app.HaproxySSLCertID = value
+	}
+	if value, ok := app.Env["HAPROXY_BIND_ADDR"]; ok {
+		app.HaproxyBindAddr = value
+	}
+	if value, ok := app.Env["HAPROXY_MODE"]; ok {
+		if value == "tcp" || value == "http" {
+			app.HaproxyMode = value
+		}
+	}
+	if value, ok := app.Env["HAPROXY_BALANCE"]; ok {
+		app.HaproxyBalance = value
+	}
 }
 
 func parseHealthCheckPath(checks []HealthChecks) string {
