@@ -5,9 +5,14 @@ import (
 	"io/ioutil"
 	"net/http"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/QubitProducts/bamboo/configuration"
+)
+
+const (
+	externalProxyEnvPrefix = "EXTERNAL_PROXY_"
 )
 
 // Describes an app process running
@@ -32,6 +37,7 @@ type App struct {
 	HaproxyBindAddr        string
 	HaproxyMode            string
 	HaproxyBalance         string
+	ExternalProxyMap       map[int]string
 }
 
 type AppList []App
@@ -242,16 +248,18 @@ func createApps(tasksById map[string][]MarathonTask, marathonApps map[string]Mar
 			// Since Marathon 0.7, apps are namespaced with path
 			Id: appPath,
 			// Used for template
-			EscapedId:       strings.Replace(appId, "/", "::", -1),
-			Tasks:           simpleTasks,
-			HealthCheckPath: parseHealthCheckPath(marathonApps[appId].HealthChecks),
-			Env:             marathonApps[appId].Env,
-			HaproxyBindAddr: "0.0.0.0",
-			HaproxyMode:     "tcp",
-			HaproxyBalance:  "roundrobin",
+			EscapedId:        strings.Replace(appId, "/", "::", -1),
+			Tasks:            simpleTasks,
+			HealthCheckPath:  parseHealthCheckPath(marathonApps[appId].HealthChecks),
+			Env:              marathonApps[appId].Env,
+			HaproxyBindAddr:  "0.0.0.0",
+			HaproxyMode:      "tcp",
+			HaproxyBalance:   "roundrobin",
+			ExternalProxyMap: make(map[int]string),
 		}
 
-		parseHaproxyEnv(&app)
+		parseHaproxyEnvs(&app)
+		parseExternalProxyEnvs(&app)
 
 		if len(marathonApps[appId].Ports) > 0 {
 			app.ServicePort = marathonApps[appId].Ports[0]
@@ -263,7 +271,7 @@ func createApps(tasksById map[string][]MarathonTask, marathonApps map[string]Mar
 	return apps
 }
 
-func parseHaproxyEnv(app *App) {
+func parseHaproxyEnvs(app *App) {
 	if value, ok := app.Env["HAPROXY_STICKY"]; ok {
 		if strings.ToLower(value) == "true" {
 			app.HaproxySticky = true
@@ -287,6 +295,17 @@ func parseHaproxyEnv(app *App) {
 	}
 	if value, ok := app.Env["HAPROXY_BALANCE"]; ok {
 		app.HaproxyBalance = value
+	}
+}
+
+func parseExternalProxyEnvs(app *App) {
+	for key, value := range app.Env {
+		if strings.HasPrefix(key, externalProxyEnvPrefix) {
+			portStr := strings.TrimPrefix(key, externalProxyEnvPrefix)
+			if port, err := strconv.ParseInt(portStr, 10, 0); err == nil {
+				app.ExternalProxyMap[int(port)] = value
+			}
+		}
 	}
 }
 
