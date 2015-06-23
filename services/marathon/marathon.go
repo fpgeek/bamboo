@@ -34,7 +34,6 @@ type App struct {
 	HaproxySticky          bool
 	HaproxyRedirectToHTTPS bool
 	HaproxySSLCertID       string
-	HaproxyBindAddr        string
 	HaproxyMode            string
 	HaproxyBalance         string
 	ExternalProxyMap       map[int]string
@@ -252,7 +251,6 @@ func createApps(tasksById map[string][]MarathonTask, marathonApps map[string]Mar
 			Tasks:            simpleTasks,
 			HealthCheckPath:  parseHealthCheckPath(marathonApps[appId].HealthChecks),
 			Env:              marathonApps[appId].Env,
-			HaproxyBindAddr:  "0.0.0.0",
 			HaproxyMode:      "tcp",
 			HaproxyBalance:   "roundrobin",
 			ExternalProxyMap: make(map[int]string),
@@ -284,9 +282,6 @@ func parseHaproxyEnvs(app *App) {
 	}
 	if value, ok := app.Env["HAPROXY_SSL_CERT_ID"]; ok {
 		app.HaproxySSLCertID = value
-	}
-	if value, ok := app.Env["HAPROXY_BIND_ADDR"]; ok {
-		app.HaproxyBindAddr = value
 	}
 	if value, ok := app.Env["HAPROXY_MODE"]; ok {
 		if value == "tcp" || value == "http" {
