@@ -2,6 +2,7 @@ package marathon
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"sort"
@@ -36,6 +37,7 @@ type App struct {
 	HaproxySSLCertID       string
 	HaproxyMode            string
 	HaproxyBalance         string
+	HaproxyAppDomain       string
 	ExternalProxyMap       map[int]string
 }
 
@@ -51,6 +53,25 @@ func (slice AppList) Less(i, j int) bool {
 
 func (slice AppList) Swap(i, j int) {
 	slice[i], slice[j] = slice[j], slice[i]
+}
+
+func (slice AppList) HasSSLCertID() bool {
+	for _, app := range slice {
+		if app.HaproxySSLCertID != "" {
+			return true
+		}
+	}
+	return false
+}
+
+func (slice AppList) GetSSLCertIDs() []string {
+	certIDs := []string{}
+	for _, app := range slice {
+		if app.HaproxySSLCertID != "" {
+			certIDs = append(certIDs, app.HaproxySSLCertID)
+		}
+	}
+	return certIDs
 }
 
 type MarathonTaskList []MarathonTask
@@ -243,16 +264,18 @@ func createApps(tasksById map[string][]MarathonTask, marathonApps map[string]Mar
 			appPath = "/" + appId
 		}
 
+		escapedId := strings.Replace(strings.TrimPrefix(appId, "/"), "/", "-", -1)
 		app := App{
 			// Since Marathon 0.7, apps are namespaced with path
 			Id: appPath,
 			// Used for template
-			EscapedId:        strings.Replace(appId, "/", "::", -1),
+			EscapedId:        escapedId,
 			Tasks:            simpleTasks,
 			HealthCheckPath:  parseHealthCheckPath(marathonApps[appId].HealthChecks),
 			Env:              marathonApps[appId].Env,
 			HaproxyMode:      "tcp",
 			HaproxyBalance:   "roundrobin",
+			HaproxyAppDomain: fmt.Sprintf("%s.dkos.io", escapedId),
 			ExternalProxyMap: make(map[int]string),
 		}
 
@@ -290,6 +313,9 @@ func parseHaproxyEnvs(app *App) {
 	}
 	if value, ok := app.Env["HAPROXY_BALANCE"]; ok {
 		app.HaproxyBalance = value
+	}
+	if value, ok := app.Env["HAPROXY_APP_DOMAIN"]; ok {
+		app.HaproxyAppDomain = value
 	}
 }
 
