@@ -2,7 +2,6 @@ package marathon
 
 import (
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"net/http"
 	"sort"
@@ -72,6 +71,15 @@ func (slice AppList) GetSSLCertIDs() []string {
 		}
 	}
 	return certIDs
+}
+
+func (slice AppList) HasVHosts() bool {
+	for _, app := range slice {
+		if app.HaproxyVHost != "" {
+			return true
+		}
+	}
+	return false
 }
 
 type MarathonTaskList []MarathonTask
@@ -275,7 +283,6 @@ func createApps(tasksById map[string][]MarathonTask, marathonApps map[string]Mar
 			Env:              marathonApps[appId].Env,
 			HaproxyMode:      "tcp",
 			HaproxyBalance:   "roundrobin",
-			HaproxyVHost:     fmt.Sprintf("%s.dkos.io", escapedId),
 			ExternalProxyMap: make(map[int]string),
 		}
 
@@ -293,19 +300,6 @@ func createApps(tasksById map[string][]MarathonTask, marathonApps map[string]Mar
 }
 
 func parseHaproxyEnvs(app *App) {
-	if value, ok := app.Env["HAPROXY_STICKY"]; ok {
-		if strings.ToLower(value) == "true" {
-			app.HaproxySticky = true
-		}
-	}
-	if value, ok := app.Env["HAPROXY_REDIRECT_TO_HTTPS"]; ok {
-		if strings.ToLower(value) == "true" {
-			app.HaproxyRedirectToHTTPS = true
-		}
-	}
-	if value, ok := app.Env["HAPROXY_SSL_CERT_ID"]; ok {
-		app.HaproxySSLCertID = value
-	}
 	if value, ok := app.Env["HAPROXY_MODE"]; ok {
 		if value == "tcp" || value == "http" {
 			app.HaproxyMode = value
@@ -314,8 +308,25 @@ func parseHaproxyEnvs(app *App) {
 	if value, ok := app.Env["HAPROXY_BALANCE"]; ok {
 		app.HaproxyBalance = value
 	}
-	if value, ok := app.Env["HAPROXY_VHOST"]; ok {
-		app.HaproxyVHost = value
+	if app.HaproxyMode == "http" {
+		if value, ok := app.Env["HAPROXY_STICKY"]; ok {
+			if strings.ToLower(value) == "true" {
+				app.HaproxySticky = true
+			}
+		}
+		if value, ok := app.Env["HAPROXY_SSL_CERT_ID"]; ok {
+			app.HaproxySSLCertID = value
+		}
+		if app.HaproxySSLCertID != "" {
+			if value, ok := app.Env["HAPROXY_REDIRECT_TO_HTTPS"]; ok {
+				if strings.ToLower(value) == "true" {
+					app.HaproxyRedirectToHTTPS = true
+				}
+			}
+		}
+		if value, ok := app.Env["HAPROXY_VHOST"]; ok {
+			app.HaproxyVHost = value
+		}
 	}
 }
 
