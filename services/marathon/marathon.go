@@ -37,7 +37,7 @@ type App struct {
 	HaproxySSLCertID       string
 	HaproxyMode            string
 	HaproxyBalance         string
-	HaproxyAppDomain       string
+	HaproxyVHost           string
 	ExternalProxyMap       map[int]string
 }
 
@@ -275,7 +275,7 @@ func createApps(tasksById map[string][]MarathonTask, marathonApps map[string]Mar
 			Env:              marathonApps[appId].Env,
 			HaproxyMode:      "tcp",
 			HaproxyBalance:   "roundrobin",
-			HaproxyAppDomain: fmt.Sprintf("%s.dkos.io", escapedId),
+			HaproxyVHost:     fmt.Sprintf("%s.dkos.io", escapedId),
 			ExternalProxyMap: make(map[int]string),
 		}
 
@@ -314,8 +314,8 @@ func parseHaproxyEnvs(app *App) {
 	if value, ok := app.Env["HAPROXY_BALANCE"]; ok {
 		app.HaproxyBalance = value
 	}
-	if value, ok := app.Env["HAPROXY_APP_DOMAIN"]; ok {
-		app.HaproxyAppDomain = value
+	if value, ok := app.Env["HAPROXY_VHOST"]; ok {
+		app.HaproxyVHost = value
 	}
 }
 
