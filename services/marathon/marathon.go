@@ -2,8 +2,10 @@ package marathon
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -12,7 +14,7 @@ import (
 )
 
 const (
-	externalProxyEnvPrefix = "EXTERNAL_PROXY_"
+	certFileDirPath = "/etc/ssl/marathon"
 )
 
 // Describes an app process running
@@ -33,7 +35,7 @@ type App struct {
 	Env                    map[string]string
 	HaproxySticky          bool
 	HaproxyRedirectToHTTPS bool
-	HaproxySSLCertID       string
+	HaproxySSLCertFile     string
 	HaproxyMode            string
 	HaproxyBalance         string
 	HaproxyVHost           string
@@ -54,23 +56,14 @@ func (slice AppList) Swap(i, j int) {
 	slice[i], slice[j] = slice[j], slice[i]
 }
 
-func (slice AppList) HasSSLCertID() bool {
+func (slice AppList) GetSSLCertFiles() []string {
+	certFiles := []string{}
 	for _, app := range slice {
-		if app.HaproxySSLCertID != "" {
-			return true
+		if app.HaproxySSLCertFile != "" {
+			certFiles = append(certFiles, app.HaproxySSLCertFile)
 		}
 	}
-	return false
-}
-
-func (slice AppList) GetSSLCertIDs() []string {
-	certIDs := []string{}
-	for _, app := range slice {
-		if app.HaproxySSLCertID != "" {
-			certIDs = append(certIDs, app.HaproxySSLCertID)
-		}
-	}
-	return certIDs
+	return certFiles
 }
 
 func (slice AppList) HasVHosts() bool {
@@ -287,7 +280,6 @@ func createApps(tasksById map[string][]MarathonTask, marathonApps map[string]Mar
 		}
 
 		parseHaproxyEnvs(&app)
-		parseExternalProxyEnvs(&app)
 
 		if len(marathonApps[appId].Ports) > 0 {
 			app.ServicePort = marathonApps[appId].Ports[0]
@@ -315,9 +307,14 @@ func parseHaproxyEnvs(app *App) {
 			}
 		}
 		if value, ok := app.Env["HAPROXY_SSL_CERT_ID"]; ok {
-			app.HaproxySSLCertID = value
+			if nCertID, err := strconv.ParseInt(value, 10, 0); err == nil {
+				certFilePath := fmt.Sprintf("%s/%d.pem", certFileDirPath, nCertID)
+				if _, err := os.Stat(certFilePath); os.IsExist(err) {
+					app.HaproxySSLCertFile = certFilePath
+				}
+			}
 		}
-		if app.HaproxySSLCertID != "" {
+		if app.HaproxySSLCertFile != "" {
 			if value, ok := app.Env["HAPROXY_REDIRECT_TO_HTTPS"]; ok {
 				if strings.ToLower(value) == "true" {
 					app.HaproxyRedirectToHTTPS = true
@@ -326,17 +323,6 @@ func parseHaproxyEnvs(app *App) {
 		}
 		if value, ok := app.Env["HAPROXY_VHOST"]; ok {
 			app.HaproxyVHost = value
-		}
-	}
-}
-
-func parseExternalProxyEnvs(app *App) {
-	for key, value := range app.Env {
-		if strings.HasPrefix(key, externalProxyEnvPrefix) {
-			portStr := strings.TrimPrefix(key, externalProxyEnvPrefix)
-			if port, err := strconv.ParseInt(portStr, 10, 0); err == nil {
-				app.ExternalProxyMap[int(port)] = value
-			}
 		}
 	}
 }
