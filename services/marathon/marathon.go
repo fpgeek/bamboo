@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"os"
 	"sort"
-	"strconv"
 	"strings"
 
 	"github.com/QubitProducts/bamboo/configuration"
@@ -307,11 +306,9 @@ func parseHaproxyEnvs(app *App) {
 			}
 		}
 		if value, ok := app.Env["HAPROXY_SSL_CERT_ID"]; ok {
-			if nCertID, err := strconv.ParseInt(value, 10, 0); err == nil {
-				certFilePath := fmt.Sprintf("%s/%d.pem", certFileDirPath, nCertID)
-				if _, err := os.Stat(certFilePath); os.IsExist(err) {
-					app.HaproxySSLCertFile = certFilePath
-				}
+			certFilePath := fmt.Sprintf("%s/%s.pem", certFileDirPath, value)
+			if _, err := os.Stat(certFilePath); err == nil {
+				app.HaproxySSLCertFile = certFilePath
 			}
 		}
 		if app.HaproxySSLCertFile != "" {
