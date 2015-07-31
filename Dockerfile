@@ -10,7 +10,7 @@ RUN apt-get install -yqq software-properties-common && \
     rm -rf /var/lib/apt/lists/*
 
 ADD . /opt/go/src/github.com/QubitProducts/bamboo
-ADD builder/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+ADD builder/supervisord.conf.prod /etc/supervisor/conf.d/supervisord.conf
 ADD builder/run.sh /run.sh
 ADD builder/rsyslog.conf /etc/rsyslog.conf
 ADD builder/haproxy_template.cfg /config/haproxy_template.cfg
@@ -35,4 +35,4 @@ RUN apt-get clean && \
 
 EXPOSE 80 8000
 
-CMD service rsyslog restart && /run.sh
+CMD /run.sh
