@@ -23,6 +23,7 @@ RUN go get github.com/tools/godep && \
     ln -s /opt/go/src/github.com/QubitProducts/bamboo /var/bamboo && \
     mkdir -p /run/haproxy && \
     mkdir -p /var/log/supervisor && \
+    echo "ENABLED=1" >> /etc/default/haproxy \
     echo "if (\$programname == 'haproxy') then -/var/log/haproxy.log" >> /etc/rsyslog.d/haproxy.conf
 
 VOLUME "/var/log/supervisor"

@@ -2,7 +2,7 @@
 nodaemon=true
 
 [program:rsyslog]
-command=/etc/init.d/rsyslog start
+command=/usr/sbin/rsyslogd
 
 [program:bamboo]
 command=/bin/bash -c "MARATHON_ENDPOINT=${MARATHON_ENDPOINT}; MARATHON_USERNAME=${MARATHON_USERNAME}; MARATHON_PASSWORD=${MARATHON_PASSWORD}; BAMBOO_ENDPOINT=${BAMBOO_ENDPOINT}; BAMBOO_ZK_HOST=${BAMBOO_ZK_HOST}; BAMBOO_ZK_PATH=${BAMBOO_ZK_PATH}; /var/bamboo/bamboo -bind="${BIND-:8000}" -config=${CONFIG_PATH-:config/production.example.json}"

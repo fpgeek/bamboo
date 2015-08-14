@@ -1,13 +1,15 @@
 package event_bus
 
 import (
+	"io/ioutil"
+	"log"
+	"os/exec"
+	"time"
+
 	"github.com/QubitProducts/bamboo/Godeps/_workspace/src/github.com/samuel/go-zookeeper/zk"
 	"github.com/QubitProducts/bamboo/configuration"
 	"github.com/QubitProducts/bamboo/services/haproxy"
 	"github.com/QubitProducts/bamboo/services/template"
-	"io/ioutil"
-	"log"
-	"os/exec"
 )
 
 type MarathonEvent struct {
@@ -49,8 +51,14 @@ func init() {
 	go func() {
 		log.Println("Starting update loop")
 		for {
-			h := <-updateChan
-			handleHAPUpdate(h.Conf, h.Zookeeper)
+			select {
+			case h := <-updateChan:
+				handleHAPUpdate(h.Conf, h.Zookeeper)
+			case <-time.Tick(time.Second * 3):
+				if err := execCommand("/etc/init.d/haproxy status"); err != nil {
+					execCommand("haproxy -f /etc/haproxy/haproxy.cfg -p /var/run/haproxy.pid -D -sf $(cat /var/run/haproxy.pid)")
+				}
+			}
 		}
 	}()
 }
@@ -80,10 +88,10 @@ func handleHAPUpdate(conf *configuration.Configuration, conn *zk.Conn) bool {
 	}
 
 	templateData, err := haproxy.GetTemplateData(conf, conn)
-	
+
 	if err != nil {
-	  log.Printf("Not updating haproxy because we failed to retrieve template data: \n %s\n", err)
-	  return false
+		log.Printf("Not updating haproxy because we failed to retrieve template data: \n %s\n", err)
+		return false
 	}
 
 	newContent, err := template.RenderTemplate(conf.HAProxy.TemplatePath, string(templateContent), templateData)
