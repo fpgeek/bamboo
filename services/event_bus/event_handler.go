@@ -55,7 +55,8 @@ func init() {
 			case h := <-updateChan:
 				handleHAPUpdate(h.Conf, h.Zookeeper)
 			case <-time.Tick(time.Second * 3):
-				if err := execCommand("/etc/init.d/haproxy status"); err != nil {
+				if err := exec.Command("/etc/init.d/haproxy", "status").Run(); err != nil {
+					log.Printf("/etc/init.d/haproxy status command error: %s", err.Error())
 					execCommand("haproxy -f /etc/haproxy/haproxy.cfg -p /var/run/haproxy.pid -D -sf $(cat /var/run/haproxy.pid)")
 				}
 			}
