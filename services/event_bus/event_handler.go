@@ -54,10 +54,12 @@ func init() {
 			select {
 			case h := <-updateChan:
 				handleHAPUpdate(h.Conf, h.Zookeeper)
-			case <-time.Tick(time.Second * 3):
+			case <-time.Tick(time.Second * 5):
 				if err := exec.Command("/etc/init.d/haproxy", "status").Run(); err != nil {
 					log.Printf("/etc/init.d/haproxy status command error: %s", err.Error())
-					execCommand("haproxy -f /etc/haproxy/haproxy.cfg -p /var/run/haproxy.pid -D -sf $(cat /var/run/haproxy.pid)")
+					if err.Error() != "wait: no child processes" {
+						execCommand("haproxy -f /etc/haproxy/haproxy.cfg -p /var/run/haproxy.pid -D -sf $(cat /var/run/haproxy.pid)")
+					}
 				}
 			}
 		}
