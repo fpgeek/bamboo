@@ -56,10 +56,14 @@ func (slice AppList) Swap(i, j int) {
 }
 
 func (slice AppList) GetSSLCertFiles() []string {
+	certFileSet := map[string]bool{}
 	certFiles := []string{}
 	for _, app := range slice {
 		if app.HaproxySSLCertFile != "" {
-			certFiles = append(certFiles, app.HaproxySSLCertFile)
+			if _, ok := certFileSet[app.HaproxySSLCertFile]; !ok {
+				certFiles = append(certFiles, app.HaproxySSLCertFile)
+				certFileSet[app.HaproxySSLCertFile] = true
+			}
 		}
 	}
 	return certFiles
