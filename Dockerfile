@@ -26,7 +26,7 @@ RUN go get github.com/tools/godep && \
     echo "ENABLED=1" >> /etc/default/haproxy \
     echo "if (\$programname == 'haproxy') then -/var/log/haproxy.log" >> /etc/rsyslog.d/haproxy.conf
 
-VOLUME "/var/log/supervisor"
+VOLUME /var/log/supervisor
 
 RUN apt-get clean && \
     rm -rf /tmp/* /var/tmp/* && \

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"flag"
 	"io"
 	"io/ioutil"
@@ -106,12 +105,7 @@ func initServer(conf *configuration.Configuration, conn *zk.Conn, eventBus *even
 	// Static pages
 	router.Use(martini.Static(path.Join(executableFolder(), "webapp")))
 
-	if conf.Marathon.UseEventStream {
-		// Listen events stream from Marathon
-		listenToMarathonEventStream(conf, eventSubAPI)
-	} else {
-		registerMarathonEvent(conf)
-	}
+	registerMarathonEvent(conf)
 	router.RunOnAddr(serverBindPort)
 }
 
@@ -178,66 +172,6 @@ func listenToZookeeper(conf configuration.Configuration, eventBus *event_bus.Eve
 		}
 	}()
 	return serviceConn
-}
-
-func listenToMarathonEventStream(conf *configuration.Configuration, sub api.EventSubscriptionAPI) {
-	client := &http.Client{}
-	client.Timeout = 0 * time.Second
-
-	for _, marathon := range conf.Marathon.Endpoints() {
-		ticker := time.NewTicker(1 * time.Second)
-		eventsURL := marathon + "/v2/events"
-		go func() {
-			for _ = range ticker.C {
-				req, err := http.NewRequest("GET", eventsURL, nil)
-				req.Header.Set("Accept", "text/event-stream")
-				if len(conf.Marathon.User) > 0 && len(conf.Marathon.Password) > 0 {
-					req.SetBasicAuth(conf.Marathon.User, conf.Marathon.Password)
-				}
-				if err != nil {
-					errorMsg := "An error occurred while creating request to Marathon events system: %s\n"
-					log.Printf(errorMsg, err)
-					continue
-				}
-
-				resp, err := client.Do(req)
-				if err != nil {
-					errorMsg := "An error occurred while making a request to Marathon events system: %s\n"
-					log.Printf(errorMsg, err)
-					continue
-				}
-
-				defer resp.Body.Close()
-
-				reader := bufio.NewReader(resp.Body)
-				for {
-					line, err := reader.ReadString('\n')
-					if err != nil {
-						if err != io.EOF {
-							errorMsg := "An error occurred while reading Marathon event: %s\n"
-							log.Printf(errorMsg, err)
-						}
-						break
-					}
-
-					if len(strings.TrimSpace(line)) == 0 {
-						continue
-					}
-
-					if !strings.HasPrefix(line, "data: ") {
-						errorMsg := "Wrong event format: %s\n"
-						log.Printf(errorMsg, line)
-						continue
-					}
-
-					line = line[6:]
-					sub.Notify([]byte(line))
-				}
-
-				log.Println("Event stream connection was closed. Re-opening...")
-			}
-		}()
-	}
 }
 
 func configureLog() {
