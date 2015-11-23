@@ -10,7 +10,7 @@ node_modules
 .sass-cache
 builder/build
 *.sublime-project
-run_dev.sh
 output
 *.test
 *.coverprofile
+run_dev.sh

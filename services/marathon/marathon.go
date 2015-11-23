@@ -248,6 +248,8 @@ func createApps(tasksById map[string]marathonTaskList, marathonApps map[string]m
 			app.HealthChecks = append(app.HealthChecks, check)
 		}
 
+		parseHaproxyEnvs(&app)
+
 		if len(mApp.Ports) > 0 {
 			app.ServicePort = mApp.Ports[0]
 			app.ServicePorts = mApp.Ports
