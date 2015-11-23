@@ -12,8 +12,6 @@ type Marathon struct {
 	Endpoint string
 	User     string
 	Password string
-
-	UseEventStream bool
 }
 
 func (m Marathon) Endpoints() []string {

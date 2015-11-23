@@ -2,13 +2,14 @@ package api
 
 import (
 	"encoding/json"
+
+	"github.com/QubitProducts/bamboo/configuration"
+	eb "github.com/QubitProducts/bamboo/services/event_bus"
+
 	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
-
-	"github.com/QubitProducts/bamboo/configuration"
-	eb "github.com/QubitProducts/bamboo/services/event_bus"
 )
 
 type EventSubscriptionAPI struct {
