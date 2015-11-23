@@ -1,4 +1,4 @@
-# Bamboo  [![Build Status](https://travis-ci.org/QubitProducts/bamboo.svg?branch=master)](https://travis-ci.org/QubitProducts/bamboo)
+# Bamboo  [![Build Status](https://travis-ci.org/QubitProducts/bamboo.svg?branch=master)](https://travis-ci.org/QubitProducts/bamboo) [![Coverage Status](https://coveralls.io/repos/QubitProducts/bamboo/badge.svg?branch=coverage&service=github)](https://coveralls.io/github/QubitProducts/bamboo?branch=coverage)
 
 ![bamboo-logo](https://cloud.githubusercontent.com/assets/37033/4110258/a8cc58bc-31ef-11e4-87c9-dd20bd2468c2.png)
 
@@ -64,15 +64,18 @@ This section tries to explain usage in code comment style:
 {
   // Marathon instance configuration
   "Marathon": {
-    // Marathon service HTTP endpoint
-    "Endpoint": "http://localhost:8080"
+    // Marathon service HTTP endpoints
+    "Endpoint": "http://marathon1:8080,http://marathon2:8080,http://marathon3:8080",
+    // Use the Marathon HTTP event streaming feature (Bamboo 0.2.16, Marathon v0.9.0)
+    "UseEventStream": true
   },
 
   "Bamboo": {
-
     // Bamboo's HTTP address can be accessed by Marathon
-    // This is used for Marathon HTTP callback; must be reachable by Marathon
-    "Host": "http://localhost:8000",
+    // This is used for Marathon HTTP callback, and each instance of Bamboo
+    // must be provided a unique Endpoint directly addressable by Marathon
+    // (e.g., the IP address of each server)
+    "Endpoint": "http://localhost:8000",
 
     // Proxy setting information is stored in Zookeeper
     // Bamboo will create this path if it does not already exist
@@ -83,15 +86,20 @@ This section tries to explain usage in code comment style:
       "ReportingDelay": 5
     }
   }
-  
-  
+
+
   // Make sure using absolute path on production
   "HAProxy": {
     "TemplatePath": "/var/bamboo/haproxy_template.cfg",
     "OutputPath": "/etc/haproxy/haproxy.cfg",
-    "ReloadCommand": "haproxy -f /etc/haproxy/haproxy.cfg -p /var/run/haproxy.pid -D -sf $(cat /var/run/haproxy.pid)"
+    "ReloadCommand": "haproxy -f /etc/haproxy/haproxy.cfg -p /var/run/haproxy.pid -D -sf $(cat /var/run/haproxy.pid)",
+    // A command that will validate the config before running reload command.
+    // '{{.}}' will be expanded to a temporary path that contains the config contents
+    "ReloadValidationCommand": "haproxy -c -f {{.}}",
+    // A command that will always be run after ReloadCommand, even if the reload fails
+    "ReloadCleanupCommand": "exit 0"
   },
-  
+
   // Enable or disable StatsD event tracking
   "StatsD": {
     "Enabled": false,
@@ -134,7 +142,7 @@ Configuration in the `production.json` file can be overridden with environment v
 Environment Variable | Corresponds To
 ---------------------|---------------
 `MARATHON_ENDPOINT` | Marathon.Endpoint
-`MARATHON_USERNAME` | Marathon.Username
+`MARATHON_USER` | Marathon.User
 `MARATHON_PASSWORD` | Marathon.Password
 `BAMBOO_ENDPOINT` | Bamboo.Endpoint
 `BAMBOO_ZK_HOST` | Bamboo.Zookeeper.Host
@@ -219,19 +227,25 @@ curl -i http://localhost:8000/status
 
 ## Deployment
 
-We recommend installing binary with deb or rpm package. 
-The repository includes examples of [a Jenkins build script](https://github.com/QubitProducts/bamboo/blob/master/builder/ci-jenkins.sh)
-and [a deb packages build script](https://github.com/QubitProducts/bamboo/blob/master/builder/build.sh).
-Read comments in the script to customize your build distribution workflow.
+We recommend installing binary with deb or rpm package.
 
-In short, [install fpm](https://github.com/jordansissel/fpm) and run the following command:
+The repository includes an example deb package build script called [builder/build.sh](./builder/build.sh) which generates a deb package in `./output`. For this install [fpm](https://github.com/jordansissel/fpm) and run:
 
 ```
 go build bamboo.go
 ./builder/build.sh
 ```
 
-A deb package will be generated in `./builder` directory. You can copy to a server or publish to your own apt repository.
+Moreover, there is
+- a [Jenkins build script](builder/ci-jenkins.sh) to run `build.sh` from a Jenkins job
+- and a [Docker build container](builder/build.sh) which will generate the deb package in the volume mounted output directory:
+
+```
+docker build -f Dockerfile-deb -t bamboo-build .
+docker run -it -v $(pwd)/output:/output bamboo-build
+```
+
+Independently how you build the deb package, you can copy it to a server or publish to your own apt repository.
 
 The example deb package deploys:
 
@@ -264,17 +278,17 @@ docker build -t bamboo .
 
 #### Running Bamboo as a Docker container
 
-Once the image has been built, running as a container is straightforward - you do however still need to provide the configuration to the image as environment variables. Docker allows two options for this - using the `-e` option  or by putting them in a file and using the `--env-file` option. For this example we will use the former and we will map through ports 8000 and 80 to the docker host (obviously the hosts configured here will need to be reachable from this container):
+Once the image has been built, running as a container is straightforward - you do however still need to provide the configuration to the image as environment variables. Docker allows two options for this - using the `-e` option  or by putting them in a file and using the `--env-file` option. Bamboo use Marathon event bus to get app info, so make sure set `--event_subscriber http_callback` or env `MARATHON_EVENT_SUBSCRIBER=http_callback` before start marathon instance.For this example we will use the former and we will map through ports 8000 and 80 to the docker host (obviously the hosts configured here will need to be reachable from this container):
 
 ````
 docker run -t -i --rm -p 8000:8000 -p 80:80 \
-    -e MARATHON_ENDPOINT=http://marathon:8080 \
+    -e MARATHON_ENDPOINT=http://marathon1:8080,http://marathon2:8080,http://marathon3:8080 \
     -e BAMBOO_ENDPOINT=http://bamboo:8000 \
-    -e BAMBOO_ZK_HOST=zk:2181 \
+    -e BAMBOO_ZK_HOST=zk01.example.com:2181,zk02.example.com:2181 \
     -e BAMBOO_ZK_PATH=/bamboo \
-    -e BIND=":8000"
-    -e CONFIG_PATH="config/production.example.json"
-    -e BAMBOO_DOCKER_AUTO_HOST=true
+    -e BIND=":8000" \
+    -e CONFIG_PATH="config/production.example.json" \
+    -e BAMBOO_DOCKER_AUTO_HOST=true \
     bamboo
 ````
 
@@ -283,7 +297,7 @@ Bamboo is started by supervisord in this Docker image. The [default Supervisord 
 ## Development and Contribution
 
 We use [godep](https://github.com/tools/godep) managing Go package dependencies; Goconvey for unit testing; CommonJS and SASS for frontend development and build distribution.
- 
+
 * Golang 1.3
 * Node.js 0.10.x+
 
@@ -307,12 +321,12 @@ goconvey
 Node.js UI dependencies:
 
 ```bash
-# Global 
+# Global
 npm install -g grunt-cli napa browserify node-static foreman karma-cli
 # Local
 npm install && napa
 
-# Start a foreman configured with Procfile for building SASS and JavaScript 
+# Start a foreman configured with Procfile for building SASS and JavaScript
 nf start
 ```
 

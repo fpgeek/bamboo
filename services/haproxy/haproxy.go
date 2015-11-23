@@ -12,19 +12,19 @@ type templateData struct {
 	Services map[string]service.Service
 }
 
-func GetTemplateData(config *conf.Configuration, conn *zk.Conn) (interface{}, error) {
+func GetTemplateData(config *conf.Configuration, conn *zk.Conn) (*templateData, error) {
 
-	apps, err := marathon.FetchApps(config.Marathon)
+	apps, err := marathon.FetchApps(config.Marathon, config)
 
 	if err != nil {
-	   return nil, err
- 	}
+		return nil, err
+	}
 
 	services, err := service.All(conn, config.Bamboo.Zookeeper)
 
 	if err != nil {
-	   return nil, err
- 	}
+		return nil, err
+	}
 
-	return templateData{apps, services}, nil
+	return &templateData{apps, services}, nil
 }

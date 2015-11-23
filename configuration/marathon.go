@@ -10,10 +10,10 @@ import (
 type Marathon struct {
 	// comma separated marathon http endpoints including port number
 	Endpoint string
-	// marathon username
-	Username string
-	// marathon password
+	User     string
 	Password string
+
+	UseEventStream bool
 }
 
 func (m Marathon) Endpoints() []string {

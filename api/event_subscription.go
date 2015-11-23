@@ -17,9 +17,16 @@ type EventSubscriptionAPI struct {
 }
 
 func (sub *EventSubscriptionAPI) Callback(w http.ResponseWriter, r *http.Request) {
-	var event eb.MarathonEvent
-
 	payload, _ := ioutil.ReadAll(r.Body)
+
+	sub.Notify(payload)
+
+	io.WriteString(w, "Got it!")
+}
+
+func (sub *EventSubscriptionAPI) Notify(payload []byte) {
+
+	var event eb.MarathonEvent
 	err := json.Unmarshal(payload, &event)
 
 	if err != nil {
@@ -27,5 +34,4 @@ func (sub *EventSubscriptionAPI) Callback(w http.ResponseWriter, r *http.Request
 	}
 
 	sub.EventBus.Publish(event)
-	io.WriteString(w, "Got it!")
 }

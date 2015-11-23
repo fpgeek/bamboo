@@ -9,6 +9,8 @@ bamboo
 node_modules
 .sass-cache
 builder/build
-builder/*.deb
 *.sublime-project
 run_dev.sh
+output
+*.test
+*.coverprofile
